@@ -6,6 +6,7 @@
   "scripts": {
     "test": "npm run test:unit",
     "test:unit": "cd widget && npm run test:run",
+    "test:e2e": "playwright test",
     "build": "cd widget && npm run build:widget",
     "deploy": "echo \"hook up Railway/Vercel/CDN deploy here\""
   },
@@ -21,5 +22,7 @@
     "url": "https://github.com/ShubhamDindorkar/Chatbot/issues"
   },
   "homepage": "https://github.com/ShubhamDindorkar/Chatbot#readme",
-  "devDependencies": {}
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
 }

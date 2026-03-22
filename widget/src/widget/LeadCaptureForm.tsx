@@ -83,6 +83,18 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({ sessionId, api
       }
 
       setSubmitted(true);
+
+      // Store user's name in localStorage for persistence across sessions
+      if (form.name.trim()) {
+        try {
+          localStorage.setItem('kaal-user-name', form.name.trim());
+          // Also mark as returning visitor
+          localStorage.setItem('kaal-returning-flag', 'true');
+        } catch (e) {
+          // Silently fail if localStorage not available
+        }
+      }
+
       if (onSubmitted) {
         onSubmitted();
       }

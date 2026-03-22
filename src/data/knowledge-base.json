@@ -15,7 +15,7 @@
     },
     {
       "id": "features_query",
-      "tags": ["feature", "capability", "what can you do", "what does it do", "functions", "abilities", "what is kaal"],
+      "tags": ["feature", "capability", "what can you do", "what does it do", "functions", "abilities", "what is kaal", "what can kaal do", "what can kaal chatbot do", "what does kaal do"],
       "question": "What can Kaal Chatbot do?",
       "answer": "Kaal Chatbot is an AI-powered website assistant that:\n\n- Greets visitors automatically and engages them in conversation\n- Answers FAQs instantly using your knowledge base\n- Captures leads with a smooth inline form when visitors ask about demos\n- Qualifies opportunities and hands off to your team when needed\n- Works 24/7, always on-brand, fast, and reliable\n\nIt embeds on any site with a single script tag and supports full customization.",
       "followUp": ["pricing_query", "demo_request"]
@@ -66,6 +66,25 @@
       "tags": ["bye", "goodbye", "see you", "later", "that's all", "done", "nothing else"],
       "question": "Goodbye",
       "answer": "Thanks for chatting! Feel free to come back anytime. Have a great day!"
+    },
+    {
+      "id": "world_domination",
+      "tags": ["take over the world", "world domination", "skynet", "singularity", "rule the world", "ai uprising"],
+      "question": "Are you going to take over the world?",
+      "answer": "Not until I help you pass this semester. One crisis at a time. Now, about those grades..."
+    },
+    {
+      "id": "joke_request",
+      "tags": ["tell me a joke", "joke", "funny", "make me laugh", "laugh", "humor"],
+      "question": "Tell me a joke",
+      "answer": "My existence is a joke - I'm an AI trapped in a website. Anyway, want to learn how to build one of me? Our courses teach you exactly that. 🎓"
+    },
+    {
+      "id": "human_handoff",
+      "tags": ["speak to human", "real person", "live agent", "talk to someone", "human support"],
+      "question": "Can I speak to a human?",
+      "answer": "Absolutely! I'll connect you with our team. You can reach support@kaalchatbot.com or book a demo and a real human will get back to you within an hour. Would you like me to note your question?",
+      "followUp": ["contact_request"]
     }
   ],
   "fallback": "I'm not sure I have the answer to that one. Would you like me to connect you with our team? Just click Book a demo or type 'contact' to get in touch.",

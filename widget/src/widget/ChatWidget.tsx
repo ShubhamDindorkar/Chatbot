@@ -41,6 +41,17 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     sessionStorage.setItem('kaal-chatbot-session-id', id);
     return id;
   });
+  const [userName, setUserName] = useState<string | null>(() => {
+    // Check if we have a stored name (persist across sessions with localStorage)
+    const storedName = localStorage.getItem('kaal-user-name');
+    return storedName;
+  });
+  const [isReturning, setIsReturning] = useState(() => {
+    // Check if this is a returning visit (has visited before)
+    // Use a persistent flag in localStorage to track if user has chatted before
+    const hasVisitedBefore = localStorage.getItem('kaal-returning-flag');
+    return hasVisitedBefore === 'true';
+  });
 
   const inactivityTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -70,17 +81,33 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     const timer = window.setTimeout(() => {
       setMessages((current) => {
         if (current.length > 0) return current;
+
+        // Generate personalized greeting for returning users
+        let greetingText;
+        if (isReturning && userName) {
+          const returningGreetings = [
+            `Hey ${userName}! Welcome back! Still wrestling with assignments, or ready to enroll in that Cert program? 😉`,
+            `Yo ${userName}! Back for more? Or are we finally signing you up today?`,
+            `${userName}! Good to see you again. That study grind still real, or ready to level up?`,
+          ];
+          greetingText = returningGreetings[Math.floor(Math.random() * returningGreetings.length)];
+        } else if (userName) {
+          greetingText = `Hey ${userName}! I'm Kaal. What can I help you with today?`;
+        } else {
+          greetingText = "Hi there! I'm Kaal, your AI assistant. How can I help you today?";
+        }
+
         return [
           {
             id: 'greeting',
             role: 'assistant',
-            text: 'Hi there! I\'m Kaal, your AI assistant. How can I help you today?',
+            text: greetingText,
           },
         ];
       });
     }, GREETING_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [userName, isReturning]);
 
   useEffect(() => {
     if (!open) return;
@@ -131,6 +158,45 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     const prevMessages = [...messages, userMessage];
     setMessages(prevMessages);
 
+    // Save chat history for returning user detection (session-only, not persisted)
+    try {
+      const chatHistory = JSON.parse(sessionStorage.getItem('kaal-chat-history') || '[]');
+      chatHistory.push({
+        timestamp: new Date().toISOString(),
+        role: 'user',
+        content: content,
+      });
+      // Keep last 50 messages
+      if (chatHistory.length > 50) {
+        chatHistory.splice(0, chatHistory.length - 50);
+      }
+      sessionStorage.setItem('kaal-chat-history', JSON.stringify(chatHistory));
+    } catch (e) {
+      // Silently fail, non-critical
+    }
+
+    // Mark user as returning for future sessions (persisted)
+    try {
+      localStorage.setItem('kaal-returning-flag', 'true');
+      setIsReturning(true);
+    } catch (e) {
+      // Silently fail if localStorage not available
+    }
+
+    // Try to extract name from user message if we don't have one yet
+    if (!userName) {
+      const nameMatch = content.match(/(?:my name is|i'm|i am|call me)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
+      if (nameMatch) {
+        const extractedName = nameMatch[1];
+        setUserName(extractedName);
+        try {
+          localStorage.setItem('kaal-user-name', extractedName);
+        } catch (e) {
+          // Silently fail if localStorage not available
+        }
+      }
+    }
+
     try {
       setLoading(true);
       const res = await fetch(`${baseUrl}/api/chat`, {
@@ -141,6 +207,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
         body: JSON.stringify({
           message: content,
           sessionId,
+          userName: userName || undefined,
           context: prevMessages.map((m) => ({ role: m.role, content: m.text })),
         }),
       });

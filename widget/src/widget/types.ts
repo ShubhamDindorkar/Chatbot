@@ -6,6 +6,13 @@ export interface ChatMessage {
   meta?: 'nudge' | 'error';
 }
 
+export interface ChatRequest {
+  message: string;
+  sessionId: string;
+  userName?: string;
+  context: Array<{ role: 'user' | 'assistant'; content: string }>;
+}
+
 export interface ChatResponse {
   reply: string;
   intent: string;
