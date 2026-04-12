@@ -1,4 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { v4 as uuid } from 'uuid';
 import kaalMascotSrc from '../icons/kaal-mascot-simple.svg?url';
 import { LeadCaptureForm } from './LeadCaptureForm';
@@ -48,12 +52,159 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-const QUICK_OPTIONS = [
+type QuickOption = { id: string; label: string; message: string; action?: 'show-lead' };
+
+const DEFAULT_QUICK_OPTIONS: QuickOption[] = [
   { id: 'learn-features', label: 'What can Kaal do?', message: 'Tell me what Kaal Chatbot can do.' },
   { id: 'see-pricing', label: 'Pricing plans', message: 'What are your pricing plans?' },
-  { id: 'book-demo', label: 'Book a demo', message: 'I want to book a live demo.' },
+  { id: 'book-demo', label: 'Book a demo', message: 'I want to book a live demo.', action: 'show-lead' },
   { id: 'contact-team', label: 'Talk to the team', message: 'I want to talk to someone on your team.' },
 ];
+
+const INTENT_QUICK_OPTIONS: Record<string, QuickOption[]> = {
+  pricing_query: [
+    { id: 'pricing-compare', label: 'Compare plans', message: 'Can you compare the pricing plans and who each is for?' },
+    { id: 'pricing-demo', label: 'Book a demo', message: 'I want to book a live demo.', action: 'show-lead' },
+    { id: 'pricing-discount', label: 'Discounts?', message: 'Do you offer student discounts or scholarships?' },
+    { id: 'pricing-human', label: 'Talk to the team', message: 'I want to talk to someone on your team.' },
+  ],
+  features_query: [
+    { id: 'features-more', label: 'Tell me more', message: 'What other features does Kaal have?' },
+    { id: 'features-pricing', label: 'Pricing', message: 'What are your pricing plans?' },
+    { id: 'features-demo', label: 'Book a demo', message: 'I want to book a live demo.', action: 'show-lead' },
+    { id: 'features-install', label: 'How to install', message: 'How do I install Kaal on my site?' },
+  ],
+  demo_request: [
+    { id: 'demo-share', label: 'Share my details', message: 'I want to book a live demo.', action: 'show-lead' },
+    { id: 'demo-when', label: 'Available slots?', message: 'What demo slots are available this week?' },
+    { id: 'demo-what', label: 'What will we cover?', message: 'What will we cover in the demo?' },
+    { id: 'demo-human', label: 'Talk to the team', message: 'I want to talk to someone on your team.' },
+  ],
+  contact_request: [
+    { id: 'contact-email', label: 'Email support', message: 'What is your support email?' },
+    { id: 'contact-demo', label: 'Book a demo', message: 'I want to book a live demo.', action: 'show-lead' },
+    { id: 'contact-human', label: 'Speak to human', message: 'Can I speak to a real person?' },
+  ],
+  trial_query: [
+    { id: 'trial-start', label: 'Start free trial', message: 'How do I start the free trial?' },
+    { id: 'trial-pricing', label: 'Pricing plans', message: 'What happens after the free trial?' },
+    { id: 'trial-features', label: 'Trial features', message: 'What features are included in the trial?' },
+  ],
+  integration_query: [
+    { id: 'integration-wordpress', label: 'WordPress', message: 'How do I install on WordPress?' },
+    { id: 'integration-react', label: 'React', message: 'How do I install on React?' },
+    { id: 'integration-other', label: 'Other platforms', message: 'What other platforms do you support?' },
+  ],
+  customization_query: [
+    { id: 'custom-color', label: 'Change colors', message: 'How do I customize the brand color?' },
+    { id: 'custom-position', label: 'Change position', message: 'Can I move the widget to the left side?' },
+    { id: 'custom-advanced', label: 'Advanced CSS', message: 'Can I use custom CSS?' },
+  ],
+  human_handoff: [
+    { id: 'handoff-email', label: 'Email us', message: 'What is your support email?' },
+    { id: 'handoff-demo', label: 'Book a demo', message: 'I want to book a live demo.', action: 'show-lead' },
+  ],
+};
+
+function getContextQuickOptions(messages: ChatMessage[], leadCaptured: boolean): QuickOption[] {
+  if (leadCaptured) {
+    const lastAssistantIntent = [...messages].reverse().find((m) => m.role === 'assistant')?.intent;
+    return lastAssistantIntent && INTENT_QUICK_OPTIONS[lastAssistantIntent]
+      ? INTENT_QUICK_OPTIONS[lastAssistantIntent].filter((o) => o.action !== 'show-lead')
+      : DEFAULT_QUICK_OPTIONS.filter((o) => o.action !== 'show-lead');
+  }
+
+  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+
+  const intent = lastAssistant?.intent;
+  if (intent && INTENT_QUICK_OPTIONS[intent]) return INTENT_QUICK_OPTIONS[intent];
+
+  if (lastAssistant?.requiresLead) {
+    return INTENT_QUICK_OPTIONS.demo_request;
+  }
+
+  const userText = lastUser?.text?.toLowerCase() ?? '';
+  if (userText.includes('price') || userText.includes('pricing') || userText.includes('cost') || userText.includes('plan')) {
+    return INTENT_QUICK_OPTIONS.pricing_query;
+  }
+
+  return DEFAULT_QUICK_OPTIONS;
+}
+
+const SANITIZE_SCHEMA = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames ?? []),
+    // allow a small, safe subset of HTML tags for richer replies
+    'span',
+    'br',
+    'hr',
+    'kbd',
+    'details',
+    'summary',
+  ],
+  attributes: {
+    ...(defaultSchema.attributes ?? {}),
+    a: [...((defaultSchema.attributes as any)?.a ?? []), 'target', 'rel'],
+    span: ['className'],
+    code: [...((defaultSchema.attributes as any)?.code ?? []), 'className'],
+  },
+};
+
+function AssistantRichText({ text }: { text: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[
+        rehypeRaw,
+        [rehypeSanitize as any, SANITIZE_SCHEMA as any],
+      ]}
+      components={{
+        a: ({ ...props }) => (
+          <a {...props} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb' }} />
+        ),
+        p: ({ ...props }) => <p {...props} style={{ margin: 0 }} />,
+        ul: ({ ...props }) => <ul {...props} style={{ margin: '0.25rem 0 0.25rem 1.1rem' }} />,
+        ol: ({ ...props }) => <ol {...props} style={{ margin: '0.25rem 0 0.25rem 1.1rem' }} />,
+        li: ({ ...props }) => <li {...props} style={{ margin: '0.12rem 0' }} />,
+        code: (props) => {
+          const { inline, ...rest } = props as any;
+          return inline ? (
+            <code
+              {...rest}
+              style={{
+                padding: '0.05rem 0.3rem',
+                borderRadius: 6,
+                background: 'rgba(15, 23, 42, 0.06)',
+                fontSize: '0.82em',
+              }}
+            />
+          ) : (
+            <code {...rest} />
+          );
+        },
+        pre: ({ ...props }) => (
+          <pre
+            {...props}
+            style={{
+              margin: '0.35rem 0 0.25rem',
+              padding: '0.65rem 0.75rem',
+              borderRadius: 14,
+              overflowX: 'auto',
+              background: 'rgba(15, 23, 42, 0.92)',
+              color: '#f8fafc',
+              fontSize: '0.78rem',
+              lineHeight: 1.45,
+            }}
+          />
+        ),
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+}
 
 export const ChatWidget: React.FC<ChatWidgetProps> = ({
   brandColor = '#1E3A5F',
@@ -96,6 +247,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const baseUrl = useMemo(() => apiBaseUrl || import.meta.env.VITE_API_BASE_URL, [apiBaseUrl]);
+  const quickOptions = useMemo(() => getContextQuickOptions(messages, leadCaptured), [messages, leadCaptured]);
 
   const openWindow = () => {
     if (renderWindow) {
@@ -290,6 +442,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
           role: 'assistant',
           text: '',
           intent: data.intent,
+          requiresLead: data.requiresLead,
         },
       ]);
 
@@ -309,6 +462,10 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
           current.map((m) => (m.id === assistantId ? { ...m, text: slice } : m)),
         );
         await sleep(msPerChar);
+      }
+
+      if (data.requiresLead && !leadCaptured) {
+        window.setTimeout(() => setShowLeadInline(true), 900);
       }
     } catch (e) {
       setMessages((current) => [
@@ -567,20 +724,20 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                           animationDelay: `${index * 20}ms`,
                         }}
                       >
-                        {m.text}
+                        {m.role === 'assistant' ? <AssistantRichText text={m.text} /> : m.text}
                       </div>
                     </div>
                   ))}
                 </div>
                 {!leadCaptured && messages.length > 0 && (
                   <div style={{ marginTop: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    {QUICK_OPTIONS.map((option, index) => (
+                    {quickOptions.map((option, index) => (
                       <button
                         key={option.id}
                         type="button"
                         onClick={() => {
                           void sendMessage(option.message);
-                          if (option.id === 'book-demo' && !leadCaptured) {
+                          if (option.action === 'show-lead' && !leadCaptured) {
                             window.setTimeout(() => setShowLeadInline(true), 1800);
                           }
                         }}

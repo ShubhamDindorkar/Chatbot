@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaal Chatbot Embed Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #1E3A5F;
+      margin-bottom: 20px;
+    }
+    p {
+      color: #475569;
+      line-height: 1.6;
+    }
+    .note {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      padding: 16px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Kaal Chatbot Embed Test</h1>
+    <p>This is a test page to verify the Kaal Chatbot widget embedding works correctly.</p>
+    
+    <div class="note">
+      <strong>Note:</strong> Make sure the widget is built with <code>npm run build:widget</code> and the server is running on port 4000.
+    </div>
+    
+    <p>The chat widget should appear in the bottom-right corner. Click the mascot icon to open it.</p>
+    
+    <h2>Test Scenarios:</h2>
+    <ul>
+      <li>Widget launcher button visible</li>
+      <li>Widget opens on click</li>
+      <li>Persona selection works</li>
+      <li>Messages can be sent</li>
+      <li>Markdown rendering works (try asking about features)</li>
+      <li>Context-aware quick options appear</li>
+    </ul>
+  </div>
+
+  <!-- Widget Embed Script -->
+  <script
+    src="./dist/kaal-chatbot-widget.iife.js"
+    data-brand-color="#1E3A5F"
+    data-position="bottom-right"
+    data-api-url="http://localhost:4000"
+    defer
+  ></script>
+</body>
+</html>
