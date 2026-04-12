@@ -5,6 +5,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
   intent?: string;
+  requiresLead?: boolean;
   meta?: 'nudge' | 'error';
 }
 

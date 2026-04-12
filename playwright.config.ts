@@ -18,7 +18,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'cd widget && npm run dev -- --host 0.0.0.0 --port 5173',
+    command: 'npm --prefix widget run dev -- --host 0.0.0.0 --port 5173',
     port: 5173,
     reuseExistingServer: !process.env.CI,
   },

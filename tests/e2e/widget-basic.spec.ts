@@ -8,8 +8,11 @@ test('widget loads and shows greeting + options', async ({ page }) => {
 
   await launcher.click();
 
-  await expect(page.getByText(/Kaal Chatbot/i)).toBeVisible();
-  await expect(page.getByText(/I'm Kaal, your AI assistant/i)).toBeVisible();
+  await expect(page.getByText(/choose your persona/i)).toBeVisible();
+
+  await page.getByRole('button', { name: /the expert/i }).click();
+
+  await expect(page.getByText(/you're now chatting with/i)).toBeVisible();
 
   await expect(page.getByRole('button', { name: /What can Kaal do/i })).toBeVisible();
 });
