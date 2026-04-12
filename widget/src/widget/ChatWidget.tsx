@@ -17,15 +17,8 @@ function KaalMascotAvatar({ size = 36 }: { size?: number }) {
       width={size}
       height={size}
       draggable={false}
-      style={{
-        flexShrink: 0,
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        objectFit: 'cover',
-        border: '1px solid rgba(148, 163, 184, 0.35)',
-        background: 'rgba(15, 23, 42, 0.35)',
-      }}
+      className={styles.avatar}
+      style={{ width: size, height: size }}
     />
   );
 }
@@ -245,6 +238,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 
   const inactivityTimer = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const typingCancellationRef = useRef<AbortController | null>(null);
 
   const baseUrl = useMemo(() => apiBaseUrl || import.meta.env.VITE_API_BASE_URL, [apiBaseUrl]);
   const quickOptions = useMemo(() => getContextQuickOptions(messages, leadCaptured), [messages, leadCaptured]);
@@ -270,7 +264,11 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
 
   const handlePersonaSelect = (persona: PersonaType) => {
     setSelectedPersona(persona);
-    localStorage.setItem('kaal-selected-persona', persona);
+    try {
+      localStorage.setItem('kaal-selected-persona', persona);
+    } catch (e) {
+      console.warn('Failed to save persona selection to localStorage:', e);
+    }
     // Send welcome message based on selected persona
     const personaInfo = PERSONAS.find(p => p.id === persona);
     if (personaInfo) {
@@ -359,6 +357,15 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
     containerRef.current.scrollTop = containerRef.current.scrollHeight;
   }, [messages, showLeadInline]);
 
+  // Cleanup typing effect on unmount
+  useEffect(() => {
+    return () => {
+      if (typingCancellationRef.current) {
+        typingCancellationRef.current.abort();
+      }
+    };
+  }, []);
+
   const sendMessage = async (rawContent: string) => {
     if (!rawContent.trim() || !baseUrl) return;
     const content = rawContent.trim();
@@ -386,7 +393,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       }
       sessionStorage.setItem('kaal-chat-history', JSON.stringify(chatHistory));
     } catch (e) {
-      // Silently fail, non-critical
+      console.warn('Failed to save chat history to sessionStorage:', e);
     }
 
     // Mark user as returning for future sessions (persisted)
@@ -394,7 +401,7 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
       localStorage.setItem('kaal-returning-flag', 'true');
       setIsReturning(true);
     } catch (e) {
-      // Silently fail if localStorage not available
+      console.warn('Failed to save returning flag to localStorage:', e);
     }
 
     // Try to extract name from user message if we don't have one yet
@@ -406,13 +413,20 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
         try {
           localStorage.setItem('kaal-user-name', extractedName);
         } catch (e) {
-          // Silently fail if localStorage not available
+          console.warn('Failed to save user name to localStorage:', e);
         }
       }
     }
 
     try {
       setLoading(true);
+      
+      // Cancel any ongoing typing effect
+      if (typingCancellationRef.current) {
+        typingCancellationRef.current.abort();
+      }
+      typingCancellationRef.current = new AbortController();
+      
       const requestStartedAt = performance.now();
       const res = await fetch(`${baseUrl}/api/chat`, {
         method: 'POST',
@@ -456,17 +470,41 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
           ? MAX_TYPING_DURATION_MS / Math.max(1, fullReply.length)
           : TYPEWRITER_MS_PER_CHAR;
 
-      for (let i = 1; i <= fullReply.length; i++) {
-        const slice = fullReply.slice(0, i);
-        setMessages((current) =>
-          current.map((m) => (m.id === assistantId ? { ...m, text: slice } : m)),
-        );
-        await sleep(msPerChar);
-      }
-
-      if (data.requiresLead && !leadCaptured) {
-        window.setTimeout(() => setShowLeadInline(true), 900);
-      }
+      let currentIndex = 0;
+      const startTime = performance.now();
+      
+      const typeNextChar = () => {
+        if (typingCancellationRef.current?.signal.aborted) {
+          return;
+        }
+        
+        if (currentIndex < fullReply.length) {
+          currentIndex++;
+          const slice = fullReply.slice(0, currentIndex);
+          setMessages((current) =>
+            current.map((m) => (m.id === assistantId ? { ...m, text: slice } : m)),
+          );
+          
+          // Calculate delay based on elapsed time to stay within max duration
+          const elapsedTyping = performance.now() - startTime;
+          const remainingChars = fullReply.length - currentIndex;
+          const remainingTime = MAX_TYPING_DURATION_MS - elapsedTyping;
+          const delay = remainingChars > 0 
+            ? Math.min(msPerChar, remainingTime / remainingChars)
+            : msPerChar;
+          
+          requestAnimationFrame(() => {
+            setTimeout(typeNextChar, delay);
+          });
+        } else {
+          // Typing complete
+          if (data.requiresLead && !leadCaptured) {
+            window.setTimeout(() => setShowLeadInline(true), 900);
+          }
+        }
+      };
+      
+      typeNextChar();
     } catch (e) {
       setMessages((current) => [
         ...current,
@@ -551,10 +589,19 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                       lineHeight: 1.25,
                       wordBreak: 'break-word',
                     }}
+                    className={styles.headerTitle}
                   >
                     Choose your persona
                   </div>
-                  <div style={{ fontSize: '0.68rem', opacity: 0.78, marginTop: '0.15rem', lineHeight: 1.3 }}>
+                  <div
+                    style={{
+                      fontSize: '0.68rem',
+                      opacity: 0.78,
+                      lineHeight: 1.3,
+                      wordBreak: 'break-word',
+                    }}
+                    className={styles.headerSubtitle}
+                  >
                     Step 1 of 2
                   </div>
                 </div>
@@ -649,7 +696,11 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                     type="button"
                     onClick={() => {
                       setSelectedPersona(null);
-                      localStorage.removeItem('kaal-selected-persona');
+                      try {
+                        localStorage.removeItem('kaal-selected-persona');
+                      } catch (e) {
+                        console.warn('Failed to remove persona from localStorage:', e);
+                      }
                       setMessages([]);
                     }}
                     style={{
@@ -802,22 +853,10 @@ export const ChatWidget: React.FC<ChatWidgetProps> = ({
                     }}
                   />
                   <button
-                    type="button"
-                    onClick={handleSend}
+                    type="submit"
                     disabled={loading || !input.trim()}
-                    style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '999px',
-                      border: 'none',
-                      background: brandColor,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#f9fafb',
-                      cursor: loading ? 'wait' : 'pointer',
-                      opacity: loading || !input.trim() ? 0.6 : 1,
-                    }}
+                    className={styles.sendButton}
+                    style={{ background: `linear-gradient(135deg, ${brandColor} 0%, ${adjustColor(brandColor, 30)} 100%)` }}
                   >
                     ▶
                   </button>

@@ -12,6 +12,7 @@ export default defineConfig({
       formats: ['iife'],
     },
     rollupOptions: {
+      external: [], // Bundle all dependencies including React
       output: {
         globals: {
           react: 'React',

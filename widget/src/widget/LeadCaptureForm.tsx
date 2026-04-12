@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import validator from 'validator';
 import type { LeadPayload } from './types';
 
 interface LeadCaptureFormProps {
@@ -28,10 +29,10 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({ sessionId, api
     if (form.name.trim().length < 2 || form.name.trim().length > 80) {
       return 'Please enter a valid name.';
     }
-    const emailRegex =
-      /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-    if (!emailRegex.test(form.email.trim())) {
-      return 'Please enter a valid email address.';
+    if (!form.email.trim()) {
+      return 'Email is required';
+    } else if (!validator.isEmail(form.email.trim())) {
+      return 'Please enter a valid email address';
     }
     if (form.phone && form.phone.replace(/\D/g, '').length < 7) {
       return 'Please enter a valid phone number or leave it blank.';
@@ -91,7 +92,7 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({ sessionId, api
           // Also mark as returning visitor
           localStorage.setItem('kaal-returning-flag', 'true');
         } catch (e) {
-          // Silently fail if localStorage not available
+          console.warn('Failed to save user data to localStorage:', e);
         }
       }
 

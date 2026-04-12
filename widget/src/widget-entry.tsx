@@ -53,11 +53,10 @@ function mountWidget(initConfig?: WidgetInitConfig) {
 
   const host = document.createElement('div');
   host.id = hostId;
-  const shadow = host.attachShadow({ mode: 'closed' });
   document.body.appendChild(host);
 
   const widgetRoot = document.createElement('div');
-  shadow.appendChild(widgetRoot);
+  host.appendChild(widgetRoot);
 
   const root = ReactDOM.createRoot(widgetRoot);
   root.render(
