@@ -453,6 +453,14 @@ npm run build:widget
 
 Output: `widget/dist/kaal-chatbot-widget.iife.js`
 
+**Important**: The IIFE build assumes React and ReactDOM are available globally on the host page. If your site doesn't have React loaded globally, you need to either:
+1. Load React before the widget script:
+   ```html
+   <script crossorigin src="https://unpkg.com/react@19/umd/react.production.min.js"></script>
+   <script crossorigin src="https://unpkg.com/react-dom@19/umd/react-dom.production.min.js"></script>
+   ```
+2. Or modify the build to bundle React (update vite.widget.config.ts)
+
 Upload this file to:
 - CDN (Cloudflare R2, AWS S3, Vercel Blob, etc.)
 - Or serve directly from your static hosting
